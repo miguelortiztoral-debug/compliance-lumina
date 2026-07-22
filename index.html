@@ -282,6 +282,8 @@
 </head>
 <body>
 
+<div id="saveErrorBanner" class="hidden" style="position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#b23b35;color:#fff;padding:10px 18px;border-radius:8px;font-family:'Public Sans',sans-serif;font-size:13px;z-index:999;box-shadow:0 4px 14px rgba(0,0,0,.25);max-width:90vw;"></div>
+
 <div class="hidden" id="app">
   <div class="loading">Cargando expediente…</div>
 </div>
@@ -437,9 +439,21 @@ async function loadData(){
   render();
 }
 
+function showSaveError(msg){
+  const el = document.getElementById('saveErrorBanner');
+  if(!el) return;
+  el.textContent = '⚠ No se guardó tu cambio: ' + msg;
+  el.classList.remove('hidden');
+  clearTimeout(window._saveErrTimeout);
+  window._saveErrTimeout = setTimeout(()=>{ el.classList.add('hidden'); }, 8000);
+}
+
 async function persistObligation(o){
   const { error } = await supabaseClient.from('obligations').upsert(toDb(o));
-  if(error) console.error('No se pudo guardar', error);
+  if(error){
+    console.error('No se pudo guardar', error);
+    showSaveError(error.message);
+  }
 }
 
 let docUploadError = '';
@@ -481,12 +495,12 @@ async function removeDocument(id){
 
 async function saveCompany(){
   const { error } = await supabaseClient.from('settings').upsert({ key:'companyName', value: companyName });
-  if(error) console.error('No se pudo guardar', error);
+  if(error){ console.error('No se pudo guardar', error); showSaveError(error.message); }
 }
 
 async function saveEntities(){
   const { error } = await supabaseClient.from('settings').upsert({ key:'entities', value: JSON.stringify(ENTITY_DEFS) });
-  if(error) console.error('No se pudo guardar', error);
+  if(error){ console.error('No se pudo guardar', error); showSaveError(error.message); }
 }
 
 function slugify(name){

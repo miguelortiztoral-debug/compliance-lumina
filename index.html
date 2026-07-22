@@ -7,6 +7,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Public+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
   :root{
     --paper:#f1eee9;
@@ -862,11 +864,158 @@ function renderSettingsView(){
   return html;
 }
 
+function renderReportsView(){
+  const health = overallHealth();
+  const c = counts();
+  const total = obligations.length;
+
+  let html = `
+  <div class="masthead" style="border-top-color:var(--guinda);">
+    <div class="masthead-left">
+      <div class="eyebrow">Reportes</div>
+      <h1>Reportes y Analítica</h1>
+      <div class="meta-row">Vista consolidada de ${total} obligaciones · ${escapeHtml(companyName)}</div>
+    </div>
+    <div class="seal ${health.cls}">
+      <div class="pct">${health.pct}%</div>
+      <div class="lbl">cumplimiento</div>
+    </div>
+  </div>`;
+
+  html += `<div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px;">
+    <div class="folder" style="flex:1;min-width:280px;"><div class="folder-body" style="padding-top:16px;">
+      <div class="eyebrow" style="margin-bottom:10px;">Distribución por estatus</div>
+      <canvas id="chartStatus" height="220"></canvas>
+    </div></div>
+    <div class="folder" style="flex:1;min-width:280px;"><div class="folder-body" style="padding-top:16px;">
+      <div class="eyebrow" style="margin-bottom:10px;">% de cumplimiento por dependencia</div>
+      <canvas id="chartEntities" height="220"></canvas>
+    </div></div>
+  </div>`;
+
+  html += `<div class="folder"><div class="folder-body" style="padding-top:16px;">
+    <div class="eyebrow" style="margin-bottom:10px;">Tabla resumen por dependencia</div>
+    <table><thead><tr>
+      <th style="width:35%">Dependencia</th>
+      <th style="width:20%">% cumplimiento</th>
+      <th style="width:20%">Obligaciones</th>
+      <th style="width:25%">Vencidas</th>
+    </tr></thead><tbody>`;
+  ENTITY_DEFS.forEach(ent=>{
+    const list = obligations.filter(o=>o.entity===ent.id);
+    const eh = entityHealth(ent.id);
+    const vencidas = list.filter(o=>o.status==='vencido').length;
+    html += `<tr>
+      <td data-label="Dependencia">${escapeHtml(ent.name)}</td>
+      <td data-label="% cumplimiento">${eh.pct===null?'—':eh.pct+'%'}</td>
+      <td data-label="Obligaciones">${list.length}</td>
+      <td data-label="Vencidas">${vencidas}</td>
+    </tr>`;
+  });
+  html += `</tbody></table>
+    <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--line);">
+      <button class="primary" onclick="exportExcel()">⬇ Exportar a Excel (.xlsx)</button>
+      <button onclick="exportCSV()" style="margin-left:8px;">Exportar a CSV</button>
+    </div>
+  </div></div>`;
+
+  return html;
+}
+
+let statusChartInstance = null;
+let entityChartInstance = null;
+
+function initReportsCharts(){
+  if(typeof Chart === 'undefined') return;
+  const c = counts();
+  const statusCtx = document.getElementById('chartStatus');
+  if(statusChartInstance) statusChartInstance.destroy();
+  if(statusCtx){
+    statusChartInstance = new Chart(statusCtx, {
+      type: 'doughnut',
+      data: {
+        labels: ['Al corriente','En proceso','Vencido','Pendiente'],
+        datasets: [{
+          data: [c.ok, c.proceso, c.vencido, c.pendiente],
+          backgroundColor: ['#2f7a55','#c68a2e','#b23b35','#737373'],
+          borderWidth: 0
+        }]
+      },
+      options: {
+        plugins: { legend: { position: 'bottom', labels: { font: { family: 'Public Sans' } } } }
+      }
+    });
+  }
+
+  const entitiesWithData = ENTITY_DEFS.map(ent => ({ ent, eh: entityHealth(ent.id) })).filter(x => x.eh.pct !== null);
+  const entityCtx = document.getElementById('chartEntities');
+  if(entityChartInstance) entityChartInstance.destroy();
+  if(entityCtx){
+    entityChartInstance = new Chart(entityCtx, {
+      type: 'bar',
+      data: {
+        labels: entitiesWithData.map(x => x.ent.name),
+        datasets: [{
+          data: entitiesWithData.map(x => x.eh.pct),
+          backgroundColor: entitiesWithData.map(x => x.eh.pct < 70 ? '#b23b35' : (x.eh.pct < 90 ? '#c68a2e' : '#2f7a55')),
+          borderRadius: 4
+        }]
+      },
+      options: {
+        plugins: { legend: { display: false } },
+        scales: { y: { min:0, max:100, ticks: { callback: v => v+'%' } } }
+      }
+    });
+  }
+}
+
+function exportExcel(){
+  if(typeof XLSX === 'undefined'){ alert('No se pudo cargar la librería de Excel. Revisa tu conexión e intenta de nuevo.'); return; }
+  const health = overallHealth();
+  const c = counts();
+
+  const summaryData = [
+    ['Expediente de Cumplimiento'],
+    ['Empresa', companyName],
+    ['Generado', new Date().toLocaleString('es-MX')],
+    [],
+    ['% cumplimiento general', health.pct + '%'],
+    ['Al corriente', c.ok],
+    ['En proceso', c.proceso],
+    ['Vencido', c.vencido],
+    ['Pendiente', c.pendiente],
+    [],
+    ['Dependencia','% cumplimiento','Obligaciones','Vencidas'],
+  ];
+  ENTITY_DEFS.forEach(ent=>{
+    const list = obligations.filter(o=>o.entity===ent.id);
+    const eh = entityHealth(ent.id);
+    const vencidas = list.filter(o=>o.status==='vencido').length;
+    summaryData.push([ent.name, eh.pct===null?'—':eh.pct+'%', list.length, vencidas]);
+  });
+  const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
+  wsSummary['!cols'] = [{wch:26},{wch:16},{wch:14},{wch:12}];
+
+  const detailData = [['Dependencia','Concepto','Periodicidad','Próxima fecha','Última verificación','Responsable','Estatus','Evidencia (PDF)','Notas']];
+  obligations.forEach(o=>{
+    const entName = ENTITY_DEFS.find(e=>e.id===o.entity)?.name || o.entity;
+    detailData.push([entName,o.title,o.periodicity,o.dueDate||'',o.lastChecked||'',o.responsible||'',STATUS_LABEL[o.status],o.documentUrl||'',o.notes||'']);
+  });
+  const wsDetail = XLSX.utils.aoa_to_sheet(detailData);
+  wsDetail['!cols'] = [{wch:14},{wch:34},{wch:12},{wch:14},{wch:16},{wch:16},{wch:18},{wch:34},{wch:34}];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, wsSummary, 'Resumen');
+  XLSX.utils.book_append_sheet(wb, wsDetail, 'Obligaciones');
+  XLSX.writeFile(wb, 'cumplimiento_' + new Date().toISOString().slice(0,10) + '.xlsx');
+}
+
 function render(){
   const app = document.getElementById('app');
 
   const navItems = [
     {key:'dashboard', label:'Resumen'},
+    {key:'reports', label:'Reportes'},
     {key:'entities', label:'Dependencias'},
     {key:'settings', label:'Ajustes generales'},
   ];
@@ -885,9 +1034,12 @@ function render(){
   let mainHtml;
   if(currentView === 'entities') mainHtml = renderEntitiesView();
   else if(currentView === 'settings') mainHtml = renderSettingsView();
+  else if(currentView === 'reports') mainHtml = renderReportsView();
   else mainHtml = renderDashboardView();
 
   app.innerHTML = `<div class="shell"><nav class="sidebar">${sidebarHtml}</nav><div class="wrap">${mainHtml}</div></div>`;
+
+  if(currentView === 'reports') initReportsCharts();
 
   const companyInput = document.getElementById('companyInput');
   if(companyInput){

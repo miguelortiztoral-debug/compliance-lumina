@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="es-MX">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LUMINA · Expediente de Cumplimiento</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Public+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --paper:#f1eee9;
+    --paper-raised:#ffffff;
+    --ink:#333333;
+    --ink-soft:#737373;
+    --line:#e9e9e9;
+    --line-strong:#d2d2d2;
+    --guinda:#ef7b70;
+    --guinda-dark:#ba6057;
+    --ok:#2f7a55;
+    --ok-bg:#e4f1ea;
+    --proceso:#c68a2e;
+    --proceso-bg:#faf0dd;
+    --vencido:#b23b35;
+    --vencido-bg:#f8e6e4;
+    --pendiente:#737373;
+    --pendiente-bg:#eeeeec;
+    --radius:8px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Public Sans',sans-serif;
+    font-size:14px;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  .shell{display:flex;align-items:flex-start;min-height:100vh;}
+  .sidebar{
+    width:220px;flex-shrink:0;min-height:100vh;
+    background:var(--paper-raised);border-right:1px solid var(--line);
+    padding:26px 18px;position:sticky;top:0;
+  }
+  .sidebar-brand{margin-bottom:24px;padding:0 6px;}
+  .sidebar-eyebrow{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:18px;color:var(--guinda);letter-spacing:.02em;}
+  .sidebar-sub{font-family:'Public Sans',sans-serif;font-size:11px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.08em;margin-top:2px;}
+  .sidebar-nav{display:flex;flex-direction:column;gap:2px;}
+  .nav-item{
+    display:block;width:100%;text-align:left;background:transparent;border:none;
+    padding:10px 12px;border-radius:var(--radius);
+    font-family:'Public Sans',sans-serif;font-size:13.5px;font-weight:600;
+    color:var(--ink-soft);cursor:pointer;
+  }
+  .nav-item:hover{background:var(--paper);color:var(--ink);border-color:transparent;}
+  .nav-item.active{background:var(--guinda);color:#fff;}
+  .wrap{flex:1;min-width:0;max-width:1180px;margin:0 auto;padding:28px 24px 80px;}
+  @media (max-width:900px){
+    .shell{flex-direction:column;}
+    .sidebar{width:100%;min-height:auto;position:static;border-right:none;border-bottom:1px solid var(--line);padding:16px 18px;}
+    .sidebar-nav{flex-direction:row;flex-wrap:wrap;}
+  }
+
+
+  /* ===== MASTHEAD ===== */
+  .masthead{
+    background:var(--paper-raised);
+    border:1px solid var(--line);
+    border-top:5px solid var(--guinda);
+    border-radius:var(--radius);
+    padding:26px 30px;
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:24px;
+    margin-bottom:18px;
+    flex-wrap:wrap;
+  }
+  .masthead-left{flex:1;min-width:260px;}
+  .eyebrow{
+    font-family:'Public Sans',sans-serif;
+    font-size:10.5px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--guinda);
+    font-weight:600;
+    margin-bottom:6px;
+  }
+  h1{
+    font-family:'Plus Jakarta Sans',sans-serif;
+    font-weight:800;
+    font-size:29px;
+    margin:0 0 6px;
+    color:var(--ink);
+    letter-spacing:-0.01em;
+  }
+  .company-input{
+    font-family:'Plus Jakarta Sans',sans-serif;
+    font-weight:600;
+    font-size:15px;
+    color:var(--ink-soft);
+    border:none;
+    background:transparent;
+    border-bottom:1px dashed var(--line-strong);
+    padding:2px 0;
+    width:340px;
+    max-width:100%;
+  }
+  .company-input:focus{outline:none;border-bottom-color:var(--guinda);}
+  .meta-row{
+    font-family:'Public Sans',sans-serif;
+    font-size:11px;
+    color:var(--ink-soft);
+    margin-top:10px;
+  }
+
+  /* seal */
+  .seal{
+    width:112px;height:112px;border-radius:50%;
+    border:2px solid currentColor;
+    position:relative;
+    display:flex;align-items:center;justify-content:center;flex-direction:column;
+    flex-shrink:0;
+  }
+  .seal::before{
+    content:'';
+    position:absolute;inset:6px;
+    border:1px dashed currentColor;
+    border-radius:50%;
+    opacity:.5;
+  }
+  .seal .pct{font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:26px;line-height:1;}
+  .seal .lbl{font-family:'Public Sans',sans-serif;font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;margin-top:3px;}
+  .seal.st-green{color:var(--ok);}
+  .seal.st-amber{color:var(--proceso);}
+  .seal.st-red{color:var(--vencido);}
+
+  /* summary strip */
+  .summary{
+    display:flex;
+    gap:1px;
+    background:var(--line);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    overflow:hidden;
+    margin-bottom:22px;
+    flex-wrap:wrap;
+  }
+  .summary .cell{
+    flex:1;min-width:130px;
+    background:var(--paper-raised);
+    padding:14px 18px;
+    cursor:pointer;
+    transition:background .12s;
+  }
+  .summary .cell:hover{background:#fff;}
+  .summary .cell.active{background:#fff;box-shadow:inset 0 -3px 0 var(--guinda);}
+  .summary .num{font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:24px;}
+  .summary .lbl{font-family:'Public Sans',sans-serif;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-soft);margin-top:2px;}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;}
+  .dot.ok{background:var(--ok);} .dot.proceso{background:var(--proceso);}
+  .dot.vencido{background:var(--vencido);} .dot.pendiente{background:var(--pendiente);}
+
+  /* toolbar */
+  .toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;gap:12px;flex-wrap:wrap;}
+  .toolbar-right{display:flex;gap:8px;}
+  button{
+    font-family:'Public Sans',sans-serif;
+    font-size:12.5px;font-weight:600;
+    border:1px solid var(--line-strong);
+    background:var(--paper-raised);
+    color:var(--ink);
+    padding:8px 14px;
+    border-radius:var(--radius);
+    cursor:pointer;
+    transition:all .12s;
+  }
+  button:hover{border-color:var(--guinda);color:var(--guinda);}
+  button.primary{background:var(--guinda);color:#fff;border-color:var(--guinda);}
+  button.primary:hover{background:var(--guinda-dark);color:#fff;}
+  button.ghost{border-color:transparent;background:transparent;}
+  button.small{padding:4px 9px;font-size:11px;}
+
+  /* entity folder */
+  .folder{
+    background:var(--paper-raised);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    overflow:hidden;
+    margin-bottom:16px;
+  }
+  .folder-tab{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:13px 18px;
+    cursor:pointer;
+    border-bottom:1px solid var(--line);
+    gap:12px;
+    flex-wrap:wrap;
+  }
+  .folder-tab-left{display:flex;align-items:center;gap:12px;}
+  .folder-name{font-family:'Plus Jakarta Sans',sans-serif;font-weight:600;font-size:17px;}
+  .folder-sub{font-family:'Public Sans',sans-serif;font-size:10.5px;color:var(--ink-soft);}
+  .stamp{
+    width:34px;height:34px;border-radius:50%;
+    border:2px solid currentColor;
+    display:flex;align-items:center;justify-content:center;
+    font-family:'Public Sans',sans-serif;font-weight:600;font-size:11px;
+    flex-shrink:0;
+  }
+  .stamp.st-green{color:var(--ok);} .stamp.st-amber{color:var(--proceso);}
+  .stamp.st-red{color:var(--vencido);} .stamp.st-gray{color:var(--pendiente);}
+  .caret{transition:transform .15s;color:var(--ink-soft);}
+  .caret.open{transform:rotate(90deg);}
+
+  .folder-body{padding:4px 18px 16px;}
+  table{width:100%;border-collapse:collapse;}
+  thead th{
+    text-align:left;font-family:'Public Sans',sans-serif;
+    font-size:10px;letter-spacing:.07em;text-transform:uppercase;
+    color:var(--ink-soft);font-weight:600;
+    padding:8px 8px;border-bottom:1px solid var(--line);
+  }
+  tbody td{padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:top;}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr.filtered-out{display:none;}
+  .field{
+    border:none;background:transparent;font-family:inherit;font-size:13px;color:var(--ink);
+    width:100%;padding:2px 0;
+  }
+  .field:focus{outline:none;background:#fff;}
+  textarea.field{resize:vertical;min-height:32px;font-size:12.5px;}
+  input.field-date{font-family:'Public Sans',sans-serif;font-size:12px;}
+
+  .pill{
+    display:inline-flex;align-items:center;gap:5px;
+    padding:4px 10px;border-radius:20px;
+    font-family:'Public Sans',sans-serif;font-size:11px;font-weight:600;
+    cursor:pointer;border:1px solid transparent;white-space:nowrap;
+  }
+  .pill.ok{background:var(--ok-bg);color:var(--ok);}
+  .pill.proceso{background:var(--proceso-bg);color:var(--proceso);}
+  .pill.vencido{background:var(--vencido-bg);color:var(--vencido);}
+  .pill.pendiente{background:var(--pendiente-bg);color:var(--pendiente);}
+
+  .row-actions{white-space:nowrap;}
+  .icon-btn{
+    border:none;background:transparent;color:var(--ink-soft);
+    cursor:pointer;font-size:15px;padding:2px 5px;
+  }
+  .icon-btn:hover{color:var(--vencido);}
+
+  .add-row-btn{margin-top:10px;}
+
+  .empty-note{
+    padding:14px 8px;color:var(--ink-soft);font-style:italic;font-size:12.5px;
+  }
+
+  footer{
+    text-align:center;color:var(--ink-soft);font-size:11px;
+    font-family:'Public Sans',sans-serif;margin-top:30px;
+  }
+
+  .loading{padding:60px 0;text-align:center;color:var(--ink-soft);font-family:'Public Sans',sans-serif;font-size:12px;}
+
+  @media (max-width:640px){
+    .masthead{flex-direction:column;}
+    thead{display:none;}
+    tbody td{display:block;border-bottom:none;padding:4px 8px;}
+    tbody tr{border-bottom:1px solid var(--line);padding-bottom:8px;display:block;}
+    tbody td::before{
+      content:attr(data-label);
+      font-family:'Public Sans',sans-serif;font-size:9.5px;color:var(--ink-soft);
+      text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:2px;
+    }
+  }
+  .hidden{display:none !important;}
+</style>
+</head>
+<body>
+
+<div class="hidden" id="app">
+  <div class="loading">Cargando expediente…</div>
+</div>
+
+<script>
+let ENTITY_DEFS = [
+  {id:'sat', name:'SAT', sub:'Servicio de Administración Tributaria'},
+  {id:'imss', name:'IMSS', sub:'Instituto Mexicano del Seguro Social'},
+  {id:'infonavit', name:'Infonavit', sub:'Instituto del Fondo Nacional de la Vivienda para los Trabajadores'},
+  {id:'repse', name:'REPSE', sub:'Registro de Prestadoras de Servicios Especializados u Obras Especializadas'},
+  {id:'tesoreria', name:'Tesorería', sub:'Tesorería / Hacienda local o estatal'},
+  {id:'otros', name:'Otros', sub:'STPS, Protección Civil, CONAGUA, gremiales, etc.'},
+];
+
+// Días esperados entre verificaciones, según periodicidad declarada.
+// Se usa para avisar cuándo una obligación "verificable" (opiniones de
+// cumplimiento, vigencias, etc.) ya debería revisarse de nuevo.
+const RECHECK_DAYS = {
+  'mensual':30, 'bimestral':60, 'trimestral':90, 'anual':365,
+  'permanente':30, 'cada 3 años':1095
+};
+function recheckDaysFor(periodicity){
+  const key = (periodicity||'').trim().toLowerCase();
+  return RECHECK_DAYS[key] ?? 30;
+}
+
+function seedObligations(){
+  const mk = (entity, title, periodicity, responsible, status, offsetDays, notes, lastCheckedOffset) => ({
+    id: crypto.randomUUID(),
+    entity, title, periodicity, responsible, status, notes: notes||'',
+    dueDate: offsetDate(offsetDays),
+    lastChecked: lastCheckedOffset!==undefined ? offsetDate(lastCheckedOffset) : null
+  });
+  function offsetDate(days){
+    const d = new Date();
+    d.setDate(d.getDate()+days);
+    return d.toISOString().slice(0,10);
+  }
+  return [
+    mk('sat','Declaración mensual ISR/IVA','Mensual','','ok',9,''),
+    mk('sat','DIOT','Mensual','','ok',9,''),
+    mk('sat','Declaración anual','Anual','','pendiente',180,''),
+    mk('sat','Opinión de cumplimiento (32-D)','Mensual','','ok',24,'Sentido: POSITIVO · RFC MLU210715R51 · Folio 26NG3280039 (emitida 21-jul-2026). Vuelve a subir el PDF el próximo mes para refrescar este estatus.',0),
+    mk('sat','Vigencia de e.firma y CSD (Certificado de Sello Digital)','Permanente','','ok',1117,'e.firma (FIEL) N° serie 00001000000717998198: Activo, vigente 11-ago-2025 a 11-ago-2029. CSD (SELLO) N° serie 00001000000717997299: Activo, vigente 11-ago-2025 a 11-ago-2029. RFC MLU210715R51 · MEXSTAYS LUMINA S A P I DE CV.',0),
+    mk('imss','Pago de cuotas obrero-patronales (SUA)','Mensual','','ok',12,''),
+    mk('imss','Opinión de cumplimiento IMSS','Mensual','','proceso',5,''),
+    mk('imss','Dictamen IMSS (si aplica)','Anual','','pendiente',200,'Confirmar si la empresa está obligada'),
+    mk('infonavit','Aportaciones patronales 5% (bimestral vía SUA)','Bimestral','','ok',20,''),
+    mk('infonavit','Amortizaciones de crédito de trabajadores','Bimestral','','ok',20,''),
+    mk('infonavit','Opinión de cumplimiento Infonavit (ICSOEP)','Mensual','','proceso',5,''),
+    mk('repse','Vigencia del registro REPSE','Cada 3 años','','ok',380,''),
+    mk('repse','Reporte trimestral ante STPS (REPSE)','Trimestral','','vencido',-4,'Pendiente de subir evidencia del trimestre'),
+    mk('tesoreria','Impuesto sobre nómina (ISN)','Mensual','','ok',15,''),
+    mk('tesoreria','Licencia de funcionamiento','Anual','','pendiente',150,''),
+    mk('otros','Constancia de situación fiscal de proveedores','Permanente','','pendiente',60,''),
+  ];
+}
+
+// =====================================================================
+// CONFIGURACIÓN DE SUPABASE — reemplaza estos dos valores con los de
+// tu proyecto (Supabase → Project Settings → API). El anon key es
+// público por diseño (protegido por Row Level Security), pero SIEMPRE
+// usa el "anon public key", nunca el "service_role key".
+// =====================================================================
+const SUPABASE_URL = 'https://mvzybyslnhkcixltddsm.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12enlieXNsbmhrY2l4bHRkZHNtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ2NTM2NTcsImV4cCI6MjEwMDIyOTY1N30.p-O_6hqF6N320kPIPznu07yaz8dCLKAgaVms9lMetFI';
+
+// Muestra cualquier error en pantalla (en vez de una página en blanco)
+// para poder diagnosticar sin depender de la consola del navegador.
+function showFatalError(msg){
+  const el = document.getElementById('app');
+  el.classList.remove('hidden');
+  el.innerHTML = `<div style="max-width:560px;margin:60px auto;padding:24px;border:1px solid #e0b0ac;background:#fdf2f1;border-radius:8px;font-family:sans-serif;color:#333;">
+    <strong style="color:#b23b35;">No se pudo cargar el dashboard</strong>
+    <p style="font-size:13px;margin-top:10px;">${msg}</p>
+  </div>`;
+}
+window.addEventListener('error', (e) => showFatalError('Error de JavaScript: ' + e.message));
+window.addEventListener('unhandledrejection', (e) => showFatalError('Error de conexión: ' + (e.reason && e.reason.message ? e.reason.message : e.reason)));
+
+let supabaseClient;
+try{
+  if(!window.supabase) throw new Error('La librería de Supabase no cargó (revisa tu conexión o si algo bloquea cdn.jsdelivr.net).');
+  supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+}catch(e){
+  showFatalError(e.message);
+}
+
+const STATUS_ORDER = ['ok','proceso','vencido','pendiente'];
+const STATUS_LABEL = {ok:'Al corriente', proceso:'En proceso', vencido:'Vencido / incumplido', pendiente:'Pendiente / sin iniciar'};
+
+let obligations = [];
+let companyName = 'MEXSTAYS LUMINA S.A.P.I. de C.V.';
+let activeFilter = null;
+let openFolders = new Set();
+let currentView = 'dashboard'; // 'dashboard' | 'entities' | 'settings'
+let entityFormError = '';
+
+// ---- Mapeo camelCase (JS) <-> snake_case (Postgres) ----
+function fromDb(row){
+  return {
+    id: row.id, entity: row.entity, title: row.title, periodicity: row.periodicity,
+    responsible: row.responsible, status: row.status, notes: row.notes,
+    dueDate: row.due_date, lastChecked: row.last_checked
+  };
+}
+function toDb(o){
+  return {
+    id: o.id, entity: o.entity, title: o.title, periodicity: o.periodicity,
+    responsible: o.responsible, status: o.status, notes: o.notes,
+    due_date: o.dueDate || null, last_checked: o.lastChecked || null,
+    updated_at: new Date().toISOString()
+  };
+}
+
+// ---- Arranque: sin login, el dashboard carga directo ----
+async function initApp(){
+  try{
+    document.getElementById('app').classList.remove('hidden');
+    await loadData();
+    subscribeRealtime();
+  }catch(e){
+    showFatalError(e.message);
+  }
+}
+
+// ---- Carga / guardado contra Supabase ----
+async function loadData(){
+  const { data, error } = await supabaseClient.from('obligations').select('*').order('created_at', { ascending: true });
+  if(error){ console.error(error); obligations = []; }
+  else if(data.length === 0){
+    // Primera vez: sembramos datos de ejemplo para todo el equipo.
+    obligations = seedObligations();
+    await supabaseClient.from('obligations').insert(obligations.map(toDb));
+  } else {
+    obligations = data.map(fromDb);
+  }
+
+  const { data: settingsRow } = await supabaseClient.from('settings').select('*').eq('key','companyName').maybeSingle();
+  if(settingsRow) companyName = settingsRow.value;
+  else await supabaseClient.from('settings').insert({ key:'companyName', value: companyName });
+
+  const { data: entitiesRow } = await supabaseClient.from('settings').select('*').eq('key','entities').maybeSingle();
+  if(entitiesRow){
+    try{ ENTITY_DEFS = JSON.parse(entitiesRow.value); }catch(e){ /* se queda con el default */ }
+  } else {
+    await supabaseClient.from('settings').insert({ key:'entities', value: JSON.stringify(ENTITY_DEFS) });
+  }
+  openFolders = new Set(ENTITY_DEFS.map(e=>e.id));
+
+  render();
+}
+
+async function persistObligation(o){
+  const { error } = await supabaseClient.from('obligations').upsert(toDb(o));
+  if(error) console.error('No se pudo guardar', error);
+}
+async function saveCompany(){
+  const { error } = await supabaseClient.from('settings').upsert({ key:'companyName', value: companyName });
+  if(error) console.error('No se pudo guardar', error);
+}
+
+async function saveEntities(){
+  const { error } = await supabaseClient.from('settings').upsert({ key:'entities', value: JSON.stringify(ENTITY_DEFS) });
+  if(error) console.error('No se pudo guardar', error);
+}
+
+function slugify(name){
+  const base = (name||'').toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'') // quita acentos
+    .replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
+  let slug = base || 'dependencia';
+  let n = 1;
+  while(ENTITY_DEFS.some(e=>e.id===slug)){ slug = base + '-' + (++n); }
+  return slug;
+}
+
+function addEntity(){
+  const nameInput = document.getElementById('newEntityName');
+  const subInput = document.getElementById('newEntitySub');
+  const name = nameInput.value.trim();
+  entityFormError = '';
+  if(!name){ entityFormError = 'Ponle un nombre a la dependencia.'; render(); return; }
+  ENTITY_DEFS.push({ id: slugify(name), name, sub: subInput.value.trim() });
+  openFolders.add(ENTITY_DEFS[ENTITY_DEFS.length-1].id);
+  saveEntities();
+  render();
+}
+
+function updateEntityField(id, field, value){
+  const ent = ENTITY_DEFS.find(e=>e.id===id);
+  if(!ent) return;
+  ent[field] = value;
+  saveEntities();
+}
+
+function deleteEntity(id){
+  const count = obligations.filter(o=>o.entity===id).length;
+  if(count > 0){
+    entityFormError = `No se puede eliminar: tiene ${count} obligación(es) registrada(s). Elimínalas o muévelas primero.`;
+    render();
+    return;
+  }
+  ENTITY_DEFS = ENTITY_DEFS.filter(e=>e.id!==id);
+  saveEntities();
+  render();
+}
+
+function setView(view){
+  currentView = view;
+  entityFormError = '';
+  render();
+}
+
+// ---- Tiempo real: si otro miembro del equipo edita, se refleja aquí ----
+let realtimeChannel = null;
+function subscribeRealtime(){
+  if(realtimeChannel) return;
+  realtimeChannel = supabaseClient.channel('obligations-sync')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'obligations' }, () => { loadData(); })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, () => { loadData(); })
+    .subscribe();
+}
+
+function statusScore(status){
+  return {ok:1, proceso:0.5, pendiente:0.15, vencido:0}[status] ?? 0;
+}
+
+function overallHealth(){
+  if(obligations.length===0) return {pct:100, cls:'st-green'};
+  const sum = obligations.reduce((a,o)=>a+statusScore(o.status),0);
+  const pct = Math.round((sum/obligations.length)*100);
+  let cls = 'st-green';
+  if(pct<70) cls='st-red'; else if(pct<90) cls='st-amber';
+  return {pct, cls};
+}
+
+function entityHealth(entityId){
+  const list = obligations.filter(o=>o.entity===entityId);
+  if(list.length===0) return 'st-gray';
+  const hasVencido = list.some(o=>o.status==='vencido');
+  const allOk = list.every(o=>o.status==='ok');
+  if(hasVencido) return 'st-red';
+  if(allOk) return 'st-green';
+  return 'st-amber';
+}
+
+function counts(){
+  const c = {ok:0, proceso:0, vencido:0, pendiente:0};
+  obligations.forEach(o=>{ if(c[o.status]!==undefined) c[o.status]++; });
+  return c;
+}
+
+function fmtDate(iso){
+  if(!iso) return '—';
+  const d = new Date(iso+'T00:00:00');
+  if(isNaN(d)) return iso;
+  return d.toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'});
+}
+
+function daysUntil(iso){
+  if(!iso) return null;
+  const d = new Date(iso+'T00:00:00');
+  const now = new Date(); now.setHours(0,0,0,0);
+  return Math.round((d-now)/86400000);
+}
+
+function updateField(id, field, value){
+  const o = obligations.find(x=>x.id===id);
+  if(!o) return;
+  o[field] = value;
+  persistObligation(o);
+}
+
+function cycleStatus(id){
+  const o = obligations.find(x=>x.id===id);
+  if(!o) return;
+  const idx = STATUS_ORDER.indexOf(o.status);
+  o.status = STATUS_ORDER[(idx+1)%STATUS_ORDER.length];
+  persistObligation(o);
+  render();
+}
+
+async function deleteObligation(id){
+  obligations = obligations.filter(o=>o.id!==id);
+  const { error } = await supabaseClient.from('obligations').delete().eq('id', id);
+  if(error) console.error('No se pudo eliminar', error);
+  render();
+}
+
+function addObligation(entityId){
+  const o = {
+    id: crypto.randomUUID(), entity: entityId, title:'Nueva obligación',
+    periodicity:'Mensual', responsible:'', status:'pendiente', notes:'',
+    dueDate: new Date().toISOString().slice(0,10), lastChecked: null
+  };
+  obligations.push(o);
+  persistObligation(o);
+  render();
+}
+
+function toggleFolder(id){
+  if(openFolders.has(id)) openFolders.delete(id); else openFolders.add(id);
+  render();
+}
+
+function setFilter(status){
+  activeFilter = (activeFilter===status) ? null : status;
+  render();
+}
+
+function exportCSV(){
+  const rows = [['Dependencia','Concepto','Periodicidad','Próxima fecha','Última verificación','Responsable','Estatus','Notas']];
+  obligations.forEach(o=>{
+    const entName = ENTITY_DEFS.find(e=>e.id===o.entity)?.name || o.entity;
+    rows.push([entName,o.title,o.periodicity,o.dueDate,o.lastChecked||'',o.responsible,STATUS_LABEL[o.status],o.notes]);
+  });
+  const csv = rows.map(r=>r.map(v=>'"'+String(v||'').replace(/"/g,'""')+'"').join(',')).join('\n');
+  const blob = new Blob(["\ufeff"+csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'cumplimiento_'+new Date().toISOString().slice(0,10)+'.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function renderDashboardView(){
+  const health = overallHealth();
+  const c = counts();
+  const total = obligations.length;
+
+  let html = '';
+
+  // masthead
+  html += `
+  <div class="masthead">
+    <div class="masthead-left">
+      <div class="eyebrow">Dirección de Compliance · Tablero de control</div>
+      <h1>Expediente de Cumplimiento</h1>
+      <input class="company-input" id="companyInput" value="${escapeAttr(companyName)}" placeholder="Nombre de la empresa">
+      <div class="meta-row">Actualizado: ${new Date().toLocaleString('es-MX',{dateStyle:'medium',timeStyle:'short'})} · ${total} obligaciones bajo seguimiento</div>
+    </div>
+    <div class="seal ${health.cls}">
+      <div class="pct">${health.pct}%</div>
+      <div class="lbl">cumplimiento</div>
+    </div>
+  </div>`;
+
+  // summary strip
+  const cells = [
+    {key:null, label:'Total', num:total, dot:null},
+    {key:'ok', label:'Al corriente', num:c.ok, dot:'ok'},
+    {key:'proceso', label:'En proceso', num:c.proceso, dot:'proceso'},
+    {key:'vencido', label:'Vencido', num:c.vencido, dot:'vencido'},
+    {key:'pendiente', label:'Pendiente', num:c.pendiente, dot:'pendiente'},
+  ];
+  html += `<div class="summary">`;
+  cells.forEach(cell=>{
+    const active = activeFilter===cell.key ? 'active' : '';
+    html += `<div class="cell ${active}" onclick="setFilter(${cell.key?`'${cell.key}'`:'null'})">
+      <div class="num">${cell.dot?`<span class="dot ${cell.dot}"></span>`:''}${cell.num}</div>
+      <div class="lbl">${cell.label}</div>
+    </div>`;
+  });
+  html += `</div>`;
+
+  // toolbar
+  html += `<div class="toolbar">
+    <div style="font-family:'Public Sans',sans-serif;font-size:11px;color:var(--ink-soft);">
+      ${activeFilter ? 'Filtrando: '+STATUS_LABEL[activeFilter] : 'Mostrando todas las obligaciones'}
+    </div>
+    <div class="toolbar-right">
+      <button onclick="exportCSV()">Exportar CSV</button>
+    </div>
+  </div>`;
+
+  // folders
+  ENTITY_DEFS.forEach(ent=>{
+    const list = obligations.filter(o=>o.entity===ent.id);
+    const open = openFolders.has(ent.id);
+    const eh = entityHealth(ent.id);
+    html += `<div class="folder">
+      <div class="folder-tab" onclick="toggleFolder('${ent.id}')">
+        <div class="folder-tab-left">
+          <span class="caret ${open?'open':''}">▸</span>
+          <div class="stamp ${eh}">${list.length}</div>
+          <div>
+            <div class="folder-name">${ent.name}</div>
+            <div class="folder-sub">${ent.sub}</div>
+          </div>
+        </div>
+      </div>`;
+    if(open){
+      html += `<div class="folder-body">`;
+      const visible = list.filter(o=>!activeFilter || o.status===activeFilter);
+      if(list.length===0){
+        html += `<div class="empty-note">Sin obligaciones registradas todavía.</div>`;
+      } else if(visible.length===0){
+        html += `<div class="empty-note">Ninguna obligación de esta dependencia coincide con el filtro activo.</div>`;
+      } else {
+        html += `<table><thead><tr>
+          <th style="width:18%">Concepto</th>
+          <th style="width:9%">Periodicidad</th>
+          <th style="width:10%">Próxima fecha</th>
+          <th style="width:11%">Última verificación</th>
+          <th style="width:11%">Responsable</th>
+          <th style="width:13%">Estatus</th>
+          <th style="width:20%">Notas</th>
+          <th style="width:4%"></th>
+        </tr></thead><tbody>`;
+        visible.forEach(o=>{
+          const du = daysUntil(o.dueDate);
+          let dueHint = '';
+          if(du!==null){
+            if(du<0) dueHint = `<div style="font-size:10px;color:var(--vencido);font-family:'Public Sans',sans-serif;">${Math.abs(du)}d vencido</div>`;
+            else if(du<=14) dueHint = `<div style="font-size:10px;color:var(--proceso);font-family:'Public Sans',sans-serif;">en ${du}d</div>`;
+          }
+          const recheckLimit = recheckDaysFor(o.periodicity);
+          let checkHint = '';
+          if(!o.lastChecked){
+            checkHint = `<div style="font-size:10px;color:var(--pendiente);font-family:'Public Sans',sans-serif;">sin verificar</div>`;
+          } else {
+            const sinceChecked = daysUntil(o.lastChecked) * -1;
+            if(sinceChecked > recheckLimit){
+              checkHint = `<div style="font-size:10px;color:var(--vencido);font-family:'Public Sans',sans-serif;">revisar de nuevo</div>`;
+            } else {
+              checkHint = `<div style="font-size:10px;color:var(--ok);font-family:'Public Sans',sans-serif;">vigente (${sinceChecked}d)</div>`;
+            }
+          }
+          html += `<tr>
+            <td data-label="Concepto"><input class="field" value="${escapeAttr(o.title)}" onchange="updateField('${o.id}','title',this.value)"></td>
+            <td data-label="Periodicidad"><input class="field" value="${escapeAttr(o.periodicity)}" onchange="updateField('${o.id}','periodicity',this.value)"></td>
+            <td data-label="Próxima fecha">
+              <input type="date" class="field field-date" value="${o.dueDate||''}" onchange="updateField('${o.id}','dueDate',this.value); render();">
+              ${dueHint}
+            </td>
+            <td data-label="Última verificación">
+              <input type="date" class="field field-date" value="${o.lastChecked||''}" onchange="updateField('${o.id}','lastChecked',this.value); render();">
+              ${checkHint}
+            </td>
+            <td data-label="Responsable"><input class="field" placeholder="—" value="${escapeAttr(o.responsible)}" onchange="updateField('${o.id}','responsible',this.value)"></td>
+            <td data-label="Estatus"><span class="pill ${o.status}" onclick="cycleStatus('${o.id}')">${STATUS_LABEL[o.status]}</span></td>
+            <td data-label="Notas"><textarea class="field" rows="1" onchange="updateField('${o.id}','notes',this.value)">${escapeHtml(o.notes)}</textarea></td>
+            <td class="row-actions"><button class="icon-btn" title="Eliminar" onclick="deleteObligation('${o.id}')">✕</button></td>
+          </tr>`;
+        });
+        html += `</tbody></table>`;
+      }
+      html += `<button class="small add-row-btn" onclick="addObligation('${ent.id}')">+ Agregar obligación</button>`;
+      html += `</div>`;
+    }
+    html += `</div>`;
+  });
+
+  html += `<footer>Datos guardados de forma privada en tu cuenta · Haz clic en un estatus para cambiarlo</footer>`;
+
+  return html;
+}
+
+function renderEntitiesView(){
+  let html = `
+  <div class="masthead" style="border-top-color:var(--guinda);">
+    <div class="masthead-left">
+      <div class="eyebrow">Configuración</div>
+      <h1>Dependencias</h1>
+      <div class="meta-row">Agrega, renombra o elimina las dependencias/autoridades que aparecen como carpetas en el Resumen.</div>
+    </div>
+  </div>`;
+
+  html += `<div class="folder"><div class="folder-body" style="padding-top:16px;">`;
+  if(entityFormError){
+    html += `<div style="background:var(--vencido-bg);color:var(--vencido);padding:10px 12px;border-radius:var(--radius);font-size:12.5px;margin-bottom:14px;">${escapeHtml(entityFormError)}</div>`;
+  }
+  html += `<table><thead><tr>
+    <th style="width:22%">Nombre</th>
+    <th style="width:50%">Descripción</th>
+    <th style="width:18%">Obligaciones</th>
+    <th style="width:10%"></th>
+  </tr></thead><tbody>`;
+  ENTITY_DEFS.forEach(ent=>{
+    const count = obligations.filter(o=>o.entity===ent.id).length;
+    html += `<tr>
+      <td data-label="Nombre"><input class="field" value="${escapeAttr(ent.name)}" onchange="updateEntityField('${ent.id}','name',this.value)"></td>
+      <td data-label="Descripción"><input class="field" value="${escapeAttr(ent.sub)}" onchange="updateEntityField('${ent.id}','sub',this.value)"></td>
+      <td data-label="Obligaciones">${count}</td>
+      <td class="row-actions"><button class="icon-btn" title="Eliminar dependencia" onclick="deleteEntity('${ent.id}')">✕</button></td>
+    </tr>`;
+  });
+  html += `</tbody></table>`;
+
+  html += `
+  <div style="margin-top:22px;padding-top:18px;border-top:1px solid var(--line);">
+    <div class="eyebrow" style="margin-bottom:10px;">Agregar nueva dependencia</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+      <div style="flex:1;min-width:180px;">
+        <label style="display:block;font-size:11px;font-weight:600;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;">Nombre</label>
+        <input class="field" id="newEntityName" placeholder="p. ej. CONAGUA" style="border:1px solid var(--line-strong);border-radius:var(--radius);padding:8px 10px;">
+      </div>
+      <div style="flex:2;min-width:220px;">
+        <label style="display:block;font-size:11px;font-weight:600;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;">Descripción</label>
+        <input class="field" id="newEntitySub" placeholder="p. ej. Comisión Nacional del Agua" style="border:1px solid var(--line-strong);border-radius:var(--radius);padding:8px 10px;">
+      </div>
+      <button class="primary" onclick="addEntity()">+ Agregar</button>
+    </div>
+  </div>`;
+
+  html += `</div></div>`;
+  return html;
+}
+
+function renderSettingsView(){
+  let html = `
+  <div class="masthead" style="border-top-color:var(--guinda);">
+    <div class="masthead-left">
+      <div class="eyebrow">Configuración</div>
+      <h1>Ajustes generales</h1>
+      <div class="meta-row">Datos generales del expediente. Los cambios se guardan automáticamente para todo el equipo.</div>
+    </div>
+  </div>`;
+
+  html += `<div class="folder"><div class="folder-body" style="padding-top:16px;max-width:420px;">
+    <label style="display:block;font-size:11px;font-weight:600;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Nombre de la empresa</label>
+    <input class="field" id="settingsCompanyInput" value="${escapeAttr(companyName)}" style="border:1px solid var(--line-strong);border-radius:var(--radius);padding:9px 11px;width:100%;">
+  </div></div>`;
+
+  return html;
+}
+
+function render(){
+  const app = document.getElementById('app');
+
+  const navItems = [
+    {key:'dashboard', label:'Resumen'},
+    {key:'entities', label:'Dependencias'},
+    {key:'settings', label:'Ajustes generales'},
+  ];
+  let sidebarHtml = `
+    <div class="sidebar-brand">
+      <div class="sidebar-eyebrow">LUMINA</div>
+      <div class="sidebar-sub">Compliance</div>
+    </div>
+    <nav class="sidebar-nav">`;
+  navItems.forEach(item=>{
+    sidebarHtml += `<button class="nav-item ${currentView===item.key?'active':''}" onclick="setView('${item.key}')">${item.label}</button>`;
+  });
+  sidebarHtml += `</nav>`;
+
+  let mainHtml;
+  if(currentView === 'entities') mainHtml = renderEntitiesView();
+  else if(currentView === 'settings') mainHtml = renderSettingsView();
+  else mainHtml = renderDashboardView();
+
+  app.innerHTML = `<div class="shell"><nav class="sidebar">${sidebarHtml}</nav><div class="wrap">${mainHtml}</div></div>`;
+
+  const companyInput = document.getElementById('companyInput');
+  if(companyInput){
+    companyInput.addEventListener('change', (e)=>{
+      companyName = e.target.value || 'Mi Empresa';
+      saveCompany();
+      render();
+    });
+  }
+  const settingsCompanyInput = document.getElementById('settingsCompanyInput');
+  if(settingsCompanyInput){
+    settingsCompanyInput.addEventListener('change', (e)=>{
+      companyName = e.target.value || 'Mi Empresa';
+      saveCompany();
+      render();
+    });
+  }
+}
+
+function escapeHtml(s){
+  return (s||'').replace(/[&<>]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+}
+function escapeAttr(s){
+  return (s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+initApp();
+</script>
+</body>
+</html>

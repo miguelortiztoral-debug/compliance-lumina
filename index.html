@@ -9,6 +9,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
 <style>
   :root{
     --paper:#f1eee9;
@@ -500,6 +501,33 @@ try{
   showFatalError(e.message);
 }
 
+if(window.pdfjsLib){
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+}
+
+// Entidades donde, al subir el PDF de evidencia, buscamos automáticamente
+// la palabra "POSITIVO"/"NEGATIVO" (Sentido de la opinión de cumplimiento).
+const SENTIDO_ENTITIES = ['sat','imss','infonavit'];
+
+async function extractPdfSentido(file){
+  if(!window.pdfjsLib) return null;
+  try{
+    const buffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+    let fullText = '';
+    for(let i=1; i<=pdf.numPages; i++){
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      fullText += content.items.map(it=>it.str).join(' ') + ' ';
+    }
+    const match = fullText.match(/\b(POSITIVO|NEGATIVO)\b/i);
+    return match ? match[1].toUpperCase() : null;
+  }catch(e){
+    console.error('No se pudo leer el contenido del PDF', e);
+    return null;
+  }
+}
+
 const STATUS_ORDER = ['critico','urgente','medio','bajo','ok'];
 const STATUS_LABEL = {critico:'Crítico', urgente:'Urgente', medio:'Medio', bajo:'Bajo', ok:'Al corriente'};
 
@@ -727,7 +755,25 @@ async function uploadDocument(id, inputEl){
   // y las ligas para verlo se generan al vuelo, con vigencia corta.
   o.documentUrl = path;
   o.documentName = file.name;
+
+  // Para SAT/IMSS/INFONAVIT: leemos el PDF y buscamos el Sentido
+  // (POSITIVO/NEGATIVO) para dejarlo anotado automáticamente.
+  // Solo aplica si quien sube es administrador (los responsables no
+  // pueden editar Notas, así que no queremos que eso tumbe su subida).
+  let statusChangedBySentido = false;
+  if(isAdmin && SENTIDO_ENTITIES.includes(o.entity)){
+    const sentido = await extractPdfSentido(file);
+    if(sentido){
+      const fecha = new Date().toLocaleDateString('es-MX');
+      const tag = `Sentido: ${sentido} (leído automáticamente del PDF, ${fecha}).`;
+      o.notes = o.notes ? `${tag} ${o.notes}` : tag;
+      if(sentido === 'POSITIVO' && o.status !== 'ok'){ o.status = 'ok'; statusChangedBySentido = true; }
+      else if(sentido === 'NEGATIVO' && o.status !== 'critico'){ o.status = 'critico'; statusChangedBySentido = true; }
+    }
+  }
+
   await persistObligation(o);
+  if(statusChangedBySentido) logStatusChange(o);
 
   const { data: docRow, error: docErr } = await supabaseClient.from('documents').insert({
     entity: o.entity,

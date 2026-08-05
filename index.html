@@ -1184,6 +1184,36 @@ function cycleStatus(id){
   const idx = STATUS_ORDER.indexOf(o.status);
   o.status = STATUS_ORDER[(idx+1)%STATUS_ORDER.length];
   persistObligation(o);
+  logStatusChange(o);
+  if(statusHistoryData[id]) delete statusHistoryData[id]; // se recarga si se vuelve a abrir
+  render();
+}
+
+async function logStatusChange(o){
+  const { error } = await supabaseClient.from('status_history').insert({
+    obligation_id: o.id,
+    entity: o.entity,
+    obligation_title: o.title,
+    status: o.status,
+    changed_by: currentUserEmail
+  });
+  if(error) console.error('No se pudo registrar el historial de estatus', error);
+}
+
+let statusHistoryOpen = new Set();
+let statusHistoryData = {};
+
+async function toggleStatusHistory(id){
+  if(statusHistoryOpen.has(id)){
+    statusHistoryOpen.delete(id);
+    render();
+    return;
+  }
+  statusHistoryOpen.add(id);
+  if(!statusHistoryData[id]){
+    const { data, error } = await supabaseClient.from('status_history').select('*').eq('obligation_id', id).order('changed_at', { ascending: false });
+    statusHistoryData[id] = error ? [] : data;
+  }
   render();
 }
 
@@ -1320,7 +1350,10 @@ function renderEntityFolder(ent, showLocation){
             ${checkHint}
           </td>
           <td data-label="Responsable">${fieldsEditable ? `<input class="field" placeholder="correo@empresa.com" value="${escapeAttr(o.responsible)}" onchange="updateField('${o.id}','responsible',this.value)">` : (escapeHtml(o.responsible)||'—')}</td>
-          <td data-label="Estatus">${isAdmin ? `<span class="pill ${o.status}" onclick="cycleStatus('${o.id}')">${STATUS_LABEL[o.status]}</span>` : `<span class="pill ${o.status}" style="cursor:default;">${STATUS_LABEL[o.status]}</span>`}</td>
+          <td data-label="Estatus">
+            ${isAdmin ? `<span class="pill ${o.status}" onclick="cycleStatus('${o.id}')">${STATUS_LABEL[o.status]}</span>` : `<span class="pill ${o.status}" style="cursor:default;">${STATUS_LABEL[o.status]}</span>`}
+            <div style="margin-top:4px;"><a href="#" onclick="toggleStatusHistory('${o.id}'); return false;" style="font-size:10.5px;color:var(--ink-soft);text-decoration:underline;cursor:pointer;">${statusHistoryOpen.has(o.id)?'Ocultar histórico':'Ver histórico'}</a></div>
+          </td>
           <td data-label="Evidencia (PDF)">
             ${o.documentUrl
               ? `<div style="display:flex;flex-direction:column;gap:4px;">
@@ -1335,6 +1368,29 @@ function renderEntityFolder(ent, showLocation){
           <td data-label="Notas">${fieldsEditable ? `<textarea class="field" rows="1" onchange="updateField('${o.id}','notes',this.value)">${escapeHtml(o.notes)}</textarea>` : `<span style="font-size:12.5px;">${escapeHtml(o.notes)||'—'}</span>`}</td>
           <td class="row-actions">${isAdmin ? `<button class="icon-btn" title="Eliminar" onclick="deleteObligation('${o.id}')">✕</button>` : ''}</td>
         </tr>`;
+        if(statusHistoryOpen.has(o.id)){
+          const colspan = showLocation ? 12 : 9;
+          const hist = statusHistoryData[o.id];
+          html += `<tr><td colspan="${colspan}" style="background:var(--paper);padding:10px 14px;">`;
+          if(!hist){
+            html += `<span style="font-size:12px;color:var(--ink-soft);">Cargando histórico…</span>`;
+          } else if(hist.length===0){
+            html += `<span style="font-size:12px;color:var(--ink-soft);">Sin cambios de estatus registrados todavía (el histórico empieza a llenarse desde ahora).</span>`;
+          } else {
+            html += `<div style="font-size:11px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Histórico de estatus</div>`;
+            html += `<table style="max-width:480px;"><tbody>`;
+            hist.forEach(h=>{
+              const dt = new Date(h.changed_at);
+              html += `<tr>
+                <td style="padding:3px 10px 3px 0;"><span class="pill ${h.status}" style="cursor:default;">${STATUS_LABEL[h.status]||h.status}</span></td>
+                <td style="padding:3px 10px;font-size:11.5px;color:var(--ink-soft);">${dt.toLocaleString('es-MX',{dateStyle:'medium',timeStyle:'short'})}</td>
+                <td style="padding:3px 0;font-size:11.5px;color:var(--ink-soft);">${escapeHtml(h.changed_by||'—')}</td>
+              </tr>`;
+            });
+            html += `</tbody></table>`;
+          }
+          html += `</td></tr>`;
+        }
       });
       html += `</tbody></table>`;
     }

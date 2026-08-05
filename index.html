@@ -363,7 +363,14 @@ let ENTITY_DEFS = [
   {id:'otros', name:'Otros', sub:'STPS, Protección Civil, CONAGUA, gremiales, etc.', category:'fiscal'},
 ];
 
-const CATEGORY_LABEL = {fiscal:'Cumplimiento Fiscal', operativo:'Cumplimiento Operativo'};
+const CATEGORIES = [
+  {key:'fiscal', label:'Cumplimiento Fiscal (Bloque A)'},
+  {key:'operativo', label:'Cumplimiento Operativo (Bloque B)'},
+  {key:'unidad_poderes', label:'Unidad y Poderes (Bloque C)'},
+  {key:'autoridades', label:'Autoridades e Incidencias (Bloque D)'},
+  {key:'procesos', label:'Procesos y Capacidades (Bloque E)'},
+];
+const CATEGORY_LABEL = Object.fromEntries(CATEGORIES.map(c=>[c.key, c.label]));
 
 let STATE_CITY_MAP = {
   'Baja California Sur': ['Cabo San Lucas','La Paz','San José del Cabo'],
@@ -813,6 +820,138 @@ function slugify(name){
   return slug;
 }
 
+// ---- Catálogo del documento "Cumplimiento Regulatorio Lumina" ----
+// Set inicial representativo por bloque. No es el catálogo completo del
+// documento (que tiene 150+ renglones); es un punto de partida sólido
+// que se puede seguir ampliando desde Dependencias / "+ Agregar obligación".
+const DOC_CATALOG_ENTITIES = [
+  {id:'licencias-corporativas', name:'Licencias y Operación Corporativa', sub:'SECTUR, Registro Nacional de Turismo, altas y bajas de establecimientos', category:'fiscal'},
+  {id:'laboral-noms', name:'Laboral y NOMs', sub:'STPS · reglamento interior, NOM-035, comisiones mixtas, seguridad e higiene', category:'fiscal'},
+  {id:'pld', name:'PLD (Prevención de Lavado de Dinero)', sub:'SAT/SHCP · actividades vulnerables y oficial de cumplimiento', category:'fiscal'},
+  {id:'datos-personales', name:'Datos Personales y Consumidor', sub:'INAI y PROFECO', category:'fiscal'},
+
+  {id:'licencias-propiedad', name:'Licencias y Uso de Propiedad', sub:'Uso de suelo, padrón de anfitriones, licencias municipales', category:'operativo'},
+  {id:'proteccion-civil', name:'Protección Civil', sub:'PIPC, dictámenes técnicos, brigadas y simulacros', category:'operativo'},
+  {id:'fiscal-propiedad', name:'Fiscal por Propiedad', sub:'ISH, predial, derechos de agua, cuotas condominales', category:'operativo'},
+  {id:'ambiental-sanitario', name:'Ambiental y Sanitario', sub:'Saneamiento, plagas, cisternas, residuos, COFEPRIS', category:'operativo'},
+  {id:'seguros-propiedad', name:'Seguros y Protocolos', sub:'Pólizas, coberturas y manuales de emergencia', category:'operativo'},
+
+  {id:'poderes-notariales', name:'Poderes Notariales', sub:'Poder por entidad legal, materias cubiertas y apoderado suplente', category:'unidad_poderes'},
+  {id:'cartas-poder-propietarios', name:'Cartas Poder de Propietarios', sub:'Por unidad, alcance y vigencia', category:'unidad_poderes'},
+  {id:'cartas-poder-gestores', name:'Cartas Poder de Gestores Externos', sub:'Poder limitado y específico por trámite', category:'unidad_poderes'},
+
+  {id:'proyecto-cero', name:'Proyecto Cero (Línea Base)', sub:'Inventario histórico de multas y clausuras', category:'autoridades'},
+  {id:'multas', name:'Multas', sub:'Folio, monto, recurso interpuesto y estatus', category:'autoridades'},
+  {id:'clausuras', name:'Clausuras y Suspensiones', sub:'Causa, sellos y plan de levantamiento', category:'autoridades'},
+  {id:'visitas-verificacion', name:'Visitas de Verificación', sub:'Bitácora de visitas de autoridad', category:'autoridades'},
+  {id:'requerimientos', name:'Requerimientos y Plazos Procesales', sub:'Alerta a mitad de plazo y a 3 días del vencimiento', category:'autoridades'},
+
+  {id:'plataforma-expediente', name:'Plataforma y Expediente', sub:'Desarrollo del dashboard, nomenclatura y migración documental', category:'procesos'},
+  {id:'auditoria', name:'Control y Auditoría', sub:'Checklist, calendario anual y auditorías sorpresa', category:'procesos'},
+  {id:'gestores-externos', name:'Gestores Externos', sub:'Contratos, SLA, KPI y tarifario', category:'procesos'},
+  {id:'capacitacion', name:'Capacitación', sub:'Recepción, primeros auxilios, PLD y NOM-035', category:'procesos'},
+];
+
+const DOC_CATALOG_OBLIGATIONS = [
+  ['licencias-corporativas','Registro Nacional de Turismo','Anual','Unifica lo que antes era Licencia de Turismo Nacional y Federal.'],
+  ['licencias-corporativas','Alta y baja de establecimientos','Por evento','Alinear con altas ante SAT e IMSS.'],
+  ['licencias-corporativas','NOMs turísticas aplicables','Permanente','Por verificar cuáles aplican al operador y cuáles al inmueble.'],
+
+  ['laboral-noms','Reglamento Interior de Trabajo registrado','Al constituir/modificar',''],
+  ['laboral-noms','Manual NOM-035 (corporativo y operativo)','Anual','La NOM-035 exige implementación con evidencia, no registro; confirmar trámite.'],
+  ['laboral-noms','REPSE si hay servicios especializados subcontratados','Renovación cada 3 años','Crítico si se factura personal entre entidades o a propietarios.'],
+  ['laboral-noms','Comisión Mixta de Seguridad e Higiene con actas','Constitución y actas periódicas',''],
+  ['laboral-noms','Determinación anual de Prima de Riesgo de Trabajo','Anual','Se presenta en febrero.'],
+
+  ['pld','Alta en padrón de actividades vulnerables','Una vez, mantener',''],
+  ['pld','Designación de representante encargado de cumplimiento PLD','Una vez, actualizar',''],
+  ['pld','Avisos mensuales de actividades vulnerables','Mensual','Vencen el día 17 del mes siguiente.'],
+  ['pld','Manual de políticas de identificación de clientes','Actualización periódica',''],
+
+  ['datos-personales','Aviso de privacidad integral, simplificado y corto','Actualización anual',''],
+  ['datos-personales','Procedimiento de atención de derechos ARCO documentado','Permanente',''],
+  ['datos-personales','Canal de denuncias y atención de quejas PROFECO','Permanente',''],
+
+  ['licencias-propiedad','Licencia de establecimiento mercantil / bajo impacto','Refrendo anual',''],
+  ['licencias-propiedad','Uso de suelo comercial o certificado de zonificación','Permanente',''],
+  ['licencias-propiedad','Registro en padrón de anfitriones','Reportes periódicos',''],
+  ['licencias-propiedad','Autorización del régimen de condominio para uso turístico','Verificación','Punto de mayor riesgo en Tipo 3: si el reglamento prohíbe renta corta, ninguna licencia municipal blinda la operación.'],
+
+  ['proteccion-civil','Programa Interno de Protección Civil registrado','Refrendo periódico',''],
+  ['proteccion-civil','Dictamen eléctrico por unidad verificadora','Periódico',''],
+  ['proteccion-civil','Dictamen de instalaciones de gas','Periódico',''],
+  ['proteccion-civil','Bitácora de simulacros','Semestral','Mínimo dos al año, con evidencia.'],
+  ['proteccion-civil','Inventario de extintores con recargas y vigencias','Periódico',''],
+
+  ['fiscal-propiedad','Declaración informativa del Impuesto Sobre Hospedaje','Mensual',''],
+  ['fiscal-propiedad','Predial al corriente y constancia de no adeudo','Anual o bimestral','Bloquea trámites de licencia si no está al corriente.'],
+  ['fiscal-propiedad','Cuotas de mantenimiento condominal al corriente','Mensual',''],
+
+  ['ambiental-sanitario','Control de plagas con empresa autorizada','Trimestral',''],
+  ['ambiental-sanitario','Análisis de potabilidad de agua','Semestral',''],
+  ['ambiental-sanitario','Plan de manejo de residuos','Anual',''],
+
+  ['seguros-propiedad','Póliza de seguro vigente','Anual',''],
+  ['seguros-propiedad','Póliza de responsabilidad civil con suma suficiente','Anual','La exigen para el PIPC.'],
+  ['seguros-propiedad','Verificar exclusiones por operación sin licencia','Inmediata','Revisión urgente con el corredor: varias pólizas excluyen siniestros sin autorización.'],
+
+  ['poderes-notariales','Poder notarial: administración, fiscal, laboral, pleitos y cobranzas','Revisión periódica','Verificar cobertura por cada entidad legal, no solo una.'],
+  ['poderes-notariales','Apoderado suplente designado','Una vez','Hoy no existe; riesgo si el apoderado titular se ausenta.'],
+
+  ['cartas-poder-propietarios','Carta poder de propietario (anexo estándar en contratos nuevos)','Por contrato',''],
+
+  ['cartas-poder-gestores','Carta poder específica por trámite a gestor externo','Por trámite','Nunca poder general.'],
+
+  ['proyecto-cero','Barrido de multas y clausuras históricas (últimos 3 años)','Una vez','Primer entregable del área: sin esto ningún indicador del dashboard es confiable.'],
+
+  ['multas','Registro de multas (folio, autoridad, monto, estatus)','Permanente',''],
+
+  ['clausuras','Registro de clausuras y suspensiones','Permanente',''],
+
+  ['visitas-verificacion','Bitácora de visitas de verificación','Permanente',''],
+
+  ['requerimientos','Registro de requerimientos y plazos procesales','Permanente','Alerta a mitad de plazo y a 3 días del vencimiento.'],
+
+  ['plataforma-expediente','Migrar clasificación de propiedad (Tipo 1/2/3) a la plataforma','Pendiente',''],
+  ['plataforma-expediente','Nomenclatura estándar de archivos y política de retención','Pendiente',''],
+
+  ['auditoria','Checklist de auditoría por tipo de propiedad','Pendiente',''],
+  ['auditoria','Calendario anual de auditorías','Anual',''],
+
+  ['gestores-externos','Contrato con entregables, SLA y penalización por gestor','Por gestor',''],
+  ['gestores-externos','KPI de gestor: días de trámite y tasa de rechazo','Trimestral',''],
+
+  ['capacitacion','Capacitación de recepción/seguridad ante visita de autoridad','Anual',''],
+  ['capacitacion','Capacitación PLD para quien identifica huéspedes','Anual',''],
+  ['capacitacion','Capacitación NOM-035','Anual',''],
+];
+
+async function importDocCatalog(){
+  if(!isAdmin) return;
+  let addedEntities = 0, addedObligations = 0;
+  DOC_CATALOG_ENTITIES.forEach(e=>{
+    if(!ENTITY_DEFS.some(x=>x.id===e.id)){ ENTITY_DEFS.push(e); addedEntities++; }
+  });
+  await saveEntities();
+
+  for(const [entityId, title, periodicity, notes] of DOC_CATALOG_OBLIGATIONS){
+    const yaExiste = obligations.some(o=>o.entity===entityId && o.title===title);
+    if(yaExiste) continue;
+    const o = {
+      id: crypto.randomUUID(), entity: entityId, title, periodicity,
+      responsible: '', status: 'bajo', notes,
+      dueDate: null, lastChecked: null, state:'', city:'', building:''
+    };
+    obligations.push(o);
+    await persistObligation(o);
+    addedObligations++;
+  }
+
+  locationFormError = '';
+  entityFormError = `Importación completa: ${addedEntities} dependencias y ${addedObligations} obligaciones nuevas agregadas (las que ya existían se omitieron).`;
+  render();
+}
+
 function addEntity(){
   const nameInput = document.getElementById('newEntityName');
   const subInput = document.getElementById('newEntitySub');
@@ -1172,7 +1311,14 @@ function renderEntitiesView(){
     </div>
   </div>`;
 
-  html += `<div class="folder"><div class="folder-body" style="padding-top:16px;">`;
+  html += `<div class="folder"><div class="folder-body" style="padding-top:16px;">
+    <div style="background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+      <div>
+        <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:13.5px;">Catálogo "Cumplimiento Regulatorio Lumina"</div>
+        <div style="font-size:12px;color:var(--ink-soft);margin-top:2px;">Importa las dependencias y obligaciones nuevas identificadas en el documento (Bloques A-E). No duplica lo que ya exista.</div>
+      </div>
+      <button class="primary" onclick="importDocCatalog()">Importar catálogo</button>
+    </div>`;
   if(entityFormError){
     html += `<div style="background:var(--vencido-bg);color:var(--vencido);padding:10px 12px;border-radius:var(--radius);font-size:12.5px;margin-bottom:14px;">${escapeHtml(entityFormError)}</div>`;
   }
@@ -1189,8 +1335,7 @@ function renderEntitiesView(){
       <td data-label="Nombre"><input class="field" value="${escapeAttr(ent.name)}" onchange="updateEntityField('${ent.id}','name',this.value)"></td>
       <td data-label="Categoría">
         <select onchange="updateEntityField('${ent.id}','category',this.value)" style="border:1px solid var(--line-strong);border-radius:var(--radius);padding:6px 8px;font-family:'Public Sans',sans-serif;font-size:12.5px;">
-          <option value="fiscal" ${ent.category==='fiscal'?'selected':''}>Fiscal</option>
-          <option value="operativo" ${ent.category==='operativo'?'selected':''}>Operativo</option>
+          ${CATEGORIES.map(c=>`<option value="${c.key}" ${ent.category===c.key?'selected':''}>${escapeHtml(c.label)}</option>`).join('')}
         </select>
       </td>
       <td data-label="Descripción"><input class="field" value="${escapeAttr(ent.sub)}" onchange="updateEntityField('${ent.id}','sub',this.value)"></td>
@@ -1211,8 +1356,7 @@ function renderEntitiesView(){
       <div>
         <label style="display:block;font-size:11px;font-weight:600;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;">Categoría</label>
         <select id="newEntityCategory" style="border:1px solid var(--line-strong);border-radius:var(--radius);padding:8px 10px;font-family:'Public Sans',sans-serif;font-size:13px;">
-          <option value="fiscal">Fiscal</option>
-          <option value="operativo">Operativo</option>
+          ${CATEGORIES.map(c=>`<option value="${c.key}">${escapeHtml(c.label)}</option>`).join('')}
         </select>
       </div>
       <div style="flex:2;min-width:220px;">
@@ -1672,8 +1816,7 @@ function render(){
   if(!isAdmin && (currentView==='entities' || currentView==='settings')) currentView = 'fiscal';
 
   const navItems = [
-    {key:'fiscal', label:'Cumplimiento Fiscal'},
-    {key:'operativo', label:'Cumplimiento Operativo'},
+    ...CATEGORIES.map(c=>({key:c.key, label:c.label.replace(/ \(Bloque [A-E]\)$/,'')})),
     {key:'semaforo', label:'Semáforo'},
     {key:'reports', label:'Reportes'},
     {key:'history', label:'Historial'},
@@ -1696,12 +1839,13 @@ function render(){
   sidebarHtml += `<div class="sidebar-user">${escapeHtml(currentUserEmail)}<br><span style="text-transform:uppercase;letter-spacing:.05em;font-size:10px;color:var(--guinda);font-weight:700;">${isAdmin?'Administrador':'Responsable'}</span><br><a href="#" onclick="handleLogout(); return false;">Cerrar sesión</a></div>`;
 
   let mainHtml;
+  const categoryKeys = CATEGORIES.map(c=>c.key);
   if(currentView === 'entities') mainHtml = renderEntitiesView();
   else if(currentView === 'settings') mainHtml = renderSettingsView();
   else if(currentView === 'reports') mainHtml = renderReportsView();
   else if(currentView === 'history') mainHtml = renderHistoryView();
   else if(currentView === 'semaforo') mainHtml = renderSemaforoView();
-  else if(currentView === 'operativo') mainHtml = renderCategoryView('operativo');
+  else if(categoryKeys.includes(currentView)) mainHtml = renderCategoryView(currentView);
   else mainHtml = renderCategoryView('fiscal');
 
   app.innerHTML = `<div class="shell"><nav class="sidebar">${sidebarHtml}</nav><div class="wrap">${mainHtml}</div></div>`;

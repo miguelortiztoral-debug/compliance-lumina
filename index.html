@@ -364,11 +364,11 @@ let ENTITY_DEFS = [
 ];
 
 const CATEGORIES = [
-  {key:'fiscal', label:'Cumplimiento Fiscal'},
-  {key:'operativo', label:'Cumplimiento Operativo'},
-  {key:'unidad_poderes', label:'Cumplimiento Unidad y Poderes'},
-  {key:'autoridades', label:'Cumplimiento Autoridades e Incidencias'},
-  {key:'procesos', label:'Cumplimiento Procesos y Capacidades'},
+  {key:'fiscal', label:'Cumplimiento Fiscal', desc:'Obligaciones de Lumina como entidad legal: impuestos, seguridad social, laboral, prevención de lavado de dinero y protección de datos.'},
+  {key:'operativo', label:'Cumplimiento Operativo', desc:'Obligaciones por propiedad: licencias y uso de suelo, protección civil, impuestos locales, temas ambientales/sanitarios y seguros.'},
+  {key:'unidad_poderes', label:'Cumplimiento Unidad y Poderes', desc:'Poderes notariales de Lumina y cartas poder de propietarios y gestores que habilitan la presentación de trámites.'},
+  {key:'autoridades', label:'Cumplimiento Autoridades e Incidencias', desc:'Relación con autoridades: línea base de multas y clausuras, bitácora de visitas, multas, clausuras y plazos procesales.'},
+  {key:'procesos', label:'Cumplimiento Procesos y Capacidades', desc:'Madurez interna del área: la plataforma y el expediente, auditoría, gestores externos y capacitación del personal.'},
 ];
 const CATEGORY_LABEL = Object.fromEntries(CATEGORIES.map(c=>[c.key, c.label]));
 
@@ -1304,7 +1304,9 @@ function renderCategoryView(category){
   const c = countsForCategory(category);
   const entitiesInSection = ENTITY_DEFS.filter(e=>e.category===category);
   const total = entitiesInSection.reduce((sum,e)=>sum + obligations.filter(o=>o.entity===e.id).length, 0);
-  const label = CATEGORY_LABEL[category] || category;
+  const catDef = CATEGORIES.find(c2=>c2.key===category);
+  const label = catDef?.label || category;
+  const desc = catDef?.desc || '';
 
   let html = '';
 
@@ -1314,7 +1316,8 @@ function renderCategoryView(category){
     <div class="masthead-left">
       <div class="eyebrow">Dirección de Compliance · Tablero de control</div>
       <h1>${escapeHtml(label)}</h1>
-      <input class="company-input" id="companyInput" value="${escapeAttr(companyName)}" placeholder="Nombre de la empresa">
+      ${desc ? `<div style="font-family:'Public Sans',sans-serif;font-size:13px;color:var(--ink-soft);max-width:520px;margin-top:2px;">${escapeHtml(desc)}</div>` : ''}
+      <input class="company-input" id="companyInput" value="${escapeAttr(companyName)}" placeholder="Nombre de la empresa" style="margin-top:10px;">
       <div class="meta-row">Actualizado: ${new Date().toLocaleString('es-MX',{dateStyle:'medium',timeStyle:'short'})} · ${total} obligaciones bajo seguimiento</div>
     </div>
     <div class="seal ${health.cls}">
@@ -1599,7 +1602,8 @@ function renderOverviewView(){
           <div class="pct" style="font-size:14px;">${catHealth.pct===null?'—':catHealth.pct+'%'}</div>
         </div>
       </div>
-      <div style="font-family:'Public Sans',sans-serif;font-size:12px;color:var(--ink-soft);margin-top:10px;">${catTotal} obligación${catTotal===1?'':'es'}</div>
+      <div style="font-family:'Public Sans',sans-serif;font-size:12px;color:var(--ink-soft);margin-top:10px;">${escapeHtml(cat.desc||'')}</div>
+      <div style="font-family:'Public Sans',sans-serif;font-size:12px;color:var(--ink);font-weight:600;margin-top:8px;">${catTotal} obligación${catTotal===1?'':'es'}</div>
       <div style="display:flex;gap:10px;margin-top:8px;font-family:'Public Sans',sans-serif;font-size:11.5px;">
         ${catCounts.critico>0 ? `<span style="color:var(--critico);font-weight:700;">${catCounts.critico} crítica${catCounts.critico===1?'':'s'}</span>` : ''}
         ${catCounts.urgente>0 ? `<span style="color:var(--urgente);font-weight:700;">${catCounts.urgente} urgente${catCounts.urgente===1?'':'s'}</span>` : ''}

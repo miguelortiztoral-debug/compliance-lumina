@@ -364,11 +364,11 @@ let ENTITY_DEFS = [
 ];
 
 const CATEGORIES = [
-  {key:'fiscal', label:'Cumplimiento Fiscal (Bloque A)'},
-  {key:'operativo', label:'Cumplimiento Operativo (Bloque B)'},
-  {key:'unidad_poderes', label:'Unidad y Poderes (Bloque C)'},
-  {key:'autoridades', label:'Autoridades e Incidencias (Bloque D)'},
-  {key:'procesos', label:'Procesos y Capacidades (Bloque E)'},
+  {key:'fiscal', label:'Cumplimiento Fiscal'},
+  {key:'operativo', label:'Cumplimiento Operativo'},
+  {key:'unidad_poderes', label:'Cumplimiento Unidad y Poderes'},
+  {key:'autoridades', label:'Cumplimiento Autoridades e Incidencias'},
+  {key:'procesos', label:'Cumplimiento Procesos y Capacidades'},
 ];
 const CATEGORY_LABEL = Object.fromEntries(CATEGORIES.map(c=>[c.key, c.label]));
 
@@ -1315,7 +1315,7 @@ function renderEntitiesView(){
     <div style="background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
       <div>
         <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:13.5px;">Catálogo "Cumplimiento Regulatorio Lumina"</div>
-        <div style="font-size:12px;color:var(--ink-soft);margin-top:2px;">Importa las dependencias y obligaciones nuevas identificadas en el documento (Bloques A-E). No duplica lo que ya exista.</div>
+        <div style="font-size:12px;color:var(--ink-soft);margin-top:2px;">Importa las dependencias y obligaciones nuevas identificadas en el documento de Cumplimiento Regulatorio. No duplica lo que ya exista.</div>
       </div>
       <button class="primary" onclick="importDocCatalog()">Importar catálogo</button>
     </div>`;
@@ -1816,7 +1816,7 @@ function render(){
   if(!isAdmin && (currentView==='entities' || currentView==='settings')) currentView = 'fiscal';
 
   const navItems = [
-    ...CATEGORIES.map(c=>({key:c.key, label:c.label.replace(/ \(Bloque [A-E]\)$/,'')})),
+    ...CATEGORIES.map(c=>({key:c.key, label:c.label})),
     {key:'semaforo', label:'Semáforo'},
     {key:'reports', label:'Reportes'},
     {key:'history', label:'Historial'},

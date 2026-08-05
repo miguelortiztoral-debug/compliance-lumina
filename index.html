@@ -1486,6 +1486,70 @@ function renderSettingsView(){
   return html;
 }
 
+function renderOverviewView(){
+  const health = overallHealth();
+  const c = counts();
+  const total = obligations.length;
+
+  let html = `
+  <div class="masthead">
+    <div class="masthead-left">
+      <div class="eyebrow">Dirección de Compliance · Panorama general</div>
+      <h1>Resumen General de Cumplimiento</h1>
+      <div class="meta-row">Actualizado: ${new Date().toLocaleString('es-MX',{dateStyle:'medium',timeStyle:'short'})} · ${total} obligaciones en total, en las ${CATEGORIES.length} categorías</div>
+    </div>
+    <div class="seal ${health.cls}">
+      <div class="pct">${health.pct}%</div>
+      <div class="lbl">cumplimiento</div>
+    </div>
+  </div>`;
+
+  // franja de semáforo global
+  const cells = [
+    {key:null, label:'Total', num:total, dot:null},
+    {key:'critico', label:'Crítico', num:c.critico, dot:'critico'},
+    {key:'urgente', label:'Urgente', num:c.urgente, dot:'urgente'},
+    {key:'medio', label:'Medio', num:c.medio, dot:'medio'},
+    {key:'bajo', label:'Bajo', num:c.bajo, dot:'bajo'},
+    {key:'ok', label:'Al corriente', num:c.ok, dot:'ok'},
+  ];
+  html += `<div class="summary">`;
+  cells.forEach(cell=>{
+    html += `<div class="cell">
+      <div class="num">${cell.dot?`<span class="dot ${cell.dot}"></span>`:''}${cell.num}</div>
+      <div class="lbl">${cell.label}</div>
+    </div>`;
+  });
+  html += `</div>`;
+
+  // tarjetas por categoría
+  html += `<div style="display:flex;flex-wrap:wrap;gap:14px;margin-top:20px;">`;
+  CATEGORIES.forEach(cat=>{
+    const catHealth = categoryHealth(cat.key);
+    const catCounts = countsForCategory(cat.key);
+    const catTotal = ENTITY_DEFS.filter(e=>e.category===cat.key).reduce((sum,e)=>sum + obligations.filter(o=>o.entity===e.id).length, 0);
+    html += `<div onclick="setView('${cat.key}')" style="flex:1;min-width:220px;cursor:pointer;background:var(--paper-raised);border:1px solid var(--line);border-radius:var(--radius);padding:18px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:14.5px;max-width:70%;">${escapeHtml(cat.label)}</div>
+        <div class="seal ${catHealth.cls}" style="width:52px;height:52px;flex-shrink:0;">
+          <div class="pct" style="font-size:14px;">${catHealth.pct===null?'—':catHealth.pct+'%'}</div>
+        </div>
+      </div>
+      <div style="font-family:'Public Sans',sans-serif;font-size:12px;color:var(--ink-soft);margin-top:10px;">${catTotal} obligación${catTotal===1?'':'es'}</div>
+      <div style="display:flex;gap:10px;margin-top:8px;font-family:'Public Sans',sans-serif;font-size:11.5px;">
+        ${catCounts.critico>0 ? `<span style="color:var(--critico);font-weight:700;">${catCounts.critico} crítica${catCounts.critico===1?'':'s'}</span>` : ''}
+        ${catCounts.urgente>0 ? `<span style="color:var(--urgente);font-weight:700;">${catCounts.urgente} urgente${catCounts.urgente===1?'':'s'}</span>` : ''}
+        ${(catCounts.critico===0 && catCounts.urgente===0) ? `<span style="color:var(--ink-soft);">Sin urgencias</span>` : ''}
+      </div>
+    </div>`;
+  });
+  html += `</div>`;
+
+  html += `<footer>Haz clic en cualquier categoría para ver su detalle completo.</footer>`;
+
+  return html;
+}
+
 function renderSemaforoView(){
   const total = obligations.length;
   const LEVELS = [
@@ -1817,6 +1881,7 @@ function render(){
 
   const navItems = [
     ...CATEGORIES.map(c=>({key:c.key, label:c.label})),
+    {key:'overview', label:'Resumen General'},
     {key:'semaforo', label:'Semáforo'},
     {key:'reports', label:'Reportes'},
     {key:'history', label:'Historial'},
@@ -1845,6 +1910,7 @@ function render(){
   else if(currentView === 'reports') mainHtml = renderReportsView();
   else if(currentView === 'history') mainHtml = renderHistoryView();
   else if(currentView === 'semaforo') mainHtml = renderSemaforoView();
+  else if(currentView === 'overview') mainHtml = renderOverviewView();
   else if(categoryKeys.includes(currentView)) mainHtml = renderCategoryView(currentView);
   else mainHtml = renderCategoryView('fiscal');
 
